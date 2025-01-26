@@ -12,6 +12,15 @@ This project implements an advanced anomaly detection system for CNC milling mac
 - 📈 **Performance Metrics**: Detailed model performance tracking
 - 🎯 **Dynamic Threshold Calculation**: Adaptive anomaly detection mechanism
 
+## 📚 Dataset Citation
+
+**Original Dataset Source**: 
+Tnani, M., Feil, M., & Diepold, K. (2022). Smart Data Collection System for Brownfield CNC milling Machines: A new benchmark dataset for Data-Driven Machine Monitoring. Procedia CIRP, 107, 131–136. https://doi.org/10.1016/j.procir.2022.04.022
+
+**Original Repository**: [[Link to GitHub Repository of Original Dataset](https://github.com/boschresearch/CNC_Machining)]
+
+If you use this dataset or model in your research, please cite the original work
+
 ## 📊 Model Performance Metrics
 
 - **False Positive Rate**: 1.2%
@@ -90,6 +99,9 @@ Developed by [Your Name/GitHub Username]
 
 ## 🙏 Acknowledgments
 
+- Gratitude to the original researchers for providing the CNC vibration dataset
 - Inspiration from industrial machine learning applications
 - Open-source libraries that made this project possible
+
+---
 
