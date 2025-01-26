@@ -87,10 +87,6 @@ The system uses an autoencoder to reconstruct input vibration signals. Reconstru
 
 Contributions are welcome! Please submit pull requests or open issues to suggest improvements or report bugs.
 
-## 📄 License
-
-[Specify your license here, e.g., MIT License]
-
 ## 📬 Contact
 
 Developed by [Your Name/GitHub Username]
