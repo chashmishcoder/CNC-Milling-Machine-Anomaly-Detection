@@ -1,5 +1,3 @@
-I'll update the README to include the deployment link and add some emojis to enhance readability while maintaining a professional tone:
-
 # 🤖 CNC Milling Machine Anomaly Detection
 
 ## 🌟 Overview
@@ -95,8 +93,3 @@ Developed by [Your Name/GitHub Username]
 - Inspiration from industrial machine learning applications
 - Open-source libraries that made this project possible
 
----
-
-**Note**: Replace `YOUR_DEPLOYMENT_LINK_HERE` with the actual link to your live application.
-
-Would you like me to make any further modifications to the README?
