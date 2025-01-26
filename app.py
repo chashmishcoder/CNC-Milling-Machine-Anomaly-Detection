@@ -90,7 +90,7 @@ st.sidebar.markdown("""
 """)
 
 # ----------------------- Main App Title and Description -----------------------
-st.image("cnc_machine.jpg", use_container_width=True, caption="CNC Milling Machine")
+st.image("cnc_machine.jpg", use_column_width=True, caption="CNC Milling Machine")
 st.title("🔧 CNC Milling Machine Anomaly Detection")
 st.write("""
 This application uses an **Autoencoder model** to detect anomalies in CNC milling machine vibration data.
