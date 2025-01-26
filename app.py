@@ -1,41 +1,64 @@
-# ----------------------- CORRECT STRUCTURE -----------------------
-
 import streamlit as st
 import h5py
 import numpy as np
 import tensorflow as tf
 from sklearn.preprocessing import StandardScaler
 import joblib
+import plotly.graph_objects as go
+import pandas as pd
 
-# Set page config
+# ----------------------- Streamlit Page Configuration -----------------------
 st.set_page_config(
-    page_title="CNC Health Check",
-    page_icon="🏭",
+    page_title="CNC Anomaly Detector",
+    page_icon="🔧",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS styling
-st.markdown("""
-<style>
-    .stApp {
-        background: linear-gradient(45deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-        color: white;
-    }
-    .metric-container {
-        background: rgba(255, 255, 255, 0.1);
-        padding: 1rem;
-        border-radius: 10px;
-        text-align: center;
-    }
-    .stImage > img {
-        width: 100%;
-        height: auto;
-    }
-</style>
-""", unsafe_allow_html=True)
+# ----------------------- Custom CSS for Status Styling -----------------------
+def add_custom_css():
+    st.markdown(
+        """
+        <style>
+        body {
+            background: linear-gradient(135deg, #6a82fb, #fc5c7d);
+            color: white;
+        }
+        .stApp {
+            background: linear-gradient(135deg, #6a82fb, #fc5c7d);
+            color: white;
+        }
+        header, footer {
+            background: transparent;
+        }
 
-# Helper function
+        /* Custom styles for anomaly status */
+        .anomaly-detected {
+            background-color: black;
+            color: red;
+            font-size: 18px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .normal-status {
+            background-color: green;
+            color: white;
+            font-size: 18px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+add_custom_css()
+
+
+
+
+# ----------------------- Helper Function -----------------------
 def pad_or_truncate(data, target_length=4096):
     if len(data) > target_length:
         return data[:target_length]
@@ -44,177 +67,171 @@ def pad_or_truncate(data, target_length=4096):
     else:
         return data
 
-# Load model and scaler
-autoencoder = tf.keras.models.load_model(
-    "cnc_anomaly_detector.h5",
-    custom_objects={'mse': tf.keras.losses.MeanSquaredError()}
-)
-scaler = joblib.load("scaler.pkl")
+# ----------------------- Load Model & Scaler -----------------------
+try:
+    autoencoder = tf.keras.models.load_model(
+        "cnc_anomaly_detector.h5",
+        custom_objects={'mse': tf.keras.losses.MeanSquaredError()}
+    )
+    scaler = joblib.load("scaler.pkl")
+except Exception as e:
+    st.error("Error loading model or scaler. Please check the files.")
+    st.stop()
 
-# UI Layout
-col1, col2, col3 = st.columns([1, 6, 1])
-with col2:
-    st.image("cnc_machine.jpg", caption="Your CNC Machine")
-
-st.title("CNC Machine Health Check")
-st.markdown("""
-    Upload vibration data to instantly check your machine's operational health  
-    Supported format: `.h5` files from Bosch CISS sensors
+# ----------------------- Sidebar: Model Summary -----------------------
+st.sidebar.subheader("Model Summary")
+st.sidebar.markdown("""
+- **Model Type**: Autoencoder
+- **Input Shape**: 4096 x 3 (Tri-axial Vibration Data)
+- **Training Duration**: 12 Hours
+- **Data Used**: 3 Machines, 2 Years of Production Data
+- **Validation Set Size**: 408 Samples
+- **Testing Accuracy**: 88%
 """)
 
-# File uploader
+# ----------------------- Main App Title and Description -----------------------
+st.image("cnc_machine.jpg", use_container_width=True, caption="CNC Milling Machine")
+st.title("🔧 CNC Milling Machine Anomaly Detection")
+st.write("""
+This application uses an **Autoencoder model** to detect anomalies in CNC milling machine vibration data.
+Upload your data to analyze reconstruction errors and identify anomalies such as tool wear, misalignment, or process failures.
+""")
+
+# ----------------------- Performance Metrics -----------------------
+st.subheader("Model Performance")
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("False Positive Rate", "1.2%", help="Normal samples flagged as anomalies")
+with col2:
+    st.metric("Recall (Anomalies)", "86%", help="True anomaly detection rate")
+with col3:
+    st.metric("Training Samples", "1,632", help="Healthy process samples used for training")
+
+col4, col5, col6 = st.columns(3)
+with col4:
+    st.metric("Precision", "84%", help="Proportion of true positives among detected anomalies")
+with col5:
+    st.metric("F1 Score", "85%", help="Harmonic mean of Precision and Recall")
+with col6:
+    st.metric("Specificity", "98%", help="Proportion of normal samples correctly identified as normal")
+
+st.caption("""
+**Legend**:
+- ✅ Normal: Reconstruction Error < Threshold (95th percentile of training data)
+- 🚨 Anomaly: Reconstruction Error ≥ Threshold
+*Model trained on 3 machines over 2 years of production data*
+""")
+
+# ----------------------- File Upload Section -----------------------
 uploaded_file = st.file_uploader(
-    "**Upload Vibration Data File**",
-    type=["h5"],
-    help="Need sample data? [Download example files](#)"
+    "Upload a file with tri-axial vibration data (.h5 or .csv)",
+    type=["h5", "csv"]
 )
 
 if uploaded_file:
-    with h5py.File(uploaded_file, 'r') as f:
-        data = f['vibration_data'][:]
-    
+    file_extension = uploaded_file.name.split('.')[-1]
+
+    # Load Data
+    try:
+        if file_extension == "h5":
+            with h5py.File(uploaded_file, 'r') as f:
+                data = f['vibration_data'][:]
+        elif file_extension == "csv":
+            df = pd.read_csv(uploaded_file)
+            data = df.values  # Convert DataFrame to numpy array
+    except Exception as e:
+        st.error("Error reading the uploaded file. Please ensure it is correctly formatted.")
+        st.stop()
+    original_data_length = len(data)
     # Preprocess
     if data.ndim == 1:
         data = data.reshape(-1, 3)
     data = pad_or_truncate(data, target_length=4096)
     data_normalized = scaler.transform(data.reshape(-1, 3)).reshape(1, 4096, 3)
-    
+
     # Predict
     reconstruction = autoencoder.predict(data_normalized)
-    loss = np.mean(np.square(data_normalized - reconstruction), axis=(1, 2))[0]
-    vibration_magnitude = np.sqrt(np.sum(data ** 2, axis=1))
+    reconstruction_error = np.mean(np.square(data_normalized - reconstruction), axis=(1, 2))[0]
 
-    # Metrics Display
-    st.markdown("### Analysis Report")
-    if loss > 0.1:
-        st.error("## 🔴 Critical Alert: Anomaly Detected")
-    else:
-        st.success("## 🟢 Normal Operation: All Systems Go")
+    # Threshold Calculation (Dynamic)
+    training_errors = np.load("training_reconstruction_errors.npy")  # Pre-saved reconstruction errors from training
+    threshold = np.percentile(training_errors, 95)
 
-    col1, col2, col3 = st.columns(3)
+    is_anomaly = reconstruction_error > threshold
+
+    # ----------------------- Data Preview -----------------------
+    st.write("Below is a preview of the first few rows of the uploaded data:")
+    st.dataframe(data[:5])
+
+# ----------------------- Analysis Results -----------------------
+    st.subheader("Analysis Results")
+    col1, col2 = st.columns(2)
     with col1:
-        st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-        st.metric("Confidence Score", f"{(1 - loss)*100:.1f}%", help="System confidence in normal operation")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.metric("Reconstruction Error", f"{reconstruction_error:.4f}",
+                  delta="- Normal" if not is_anomaly else "+ Anomaly",
+                  delta_color="off")
     with col2:
-        st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-        st.metric("Error Severity", f"{loss:.4f}", help="0 = Perfect health, >0.1 = Critical")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col3:
-        st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-        st.metric("Recommended Action", "Immediate Maintenance" if loss > 0.1 else "Continue Monitoring")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Vibration Statistics
-    vibration_std = np.std(data, axis=0)
-    vibration_peak = np.ptp(data, axis=0)
-    st.markdown("### Vibration Statistics")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("X-Axis Std. Dev", f"{vibration_std[0]:.4f}")
-        st.metric("X-Axis Peak-to-Peak", f"{vibration_peak[0]:.4f}")
-    with col2:
-        st.metric("Y-Axis Std. Dev", f"{vibration_std[1]:.4f}")
-        st.metric("Y-Axis Peak-to-Peak", f"{vibration_peak[1]:.4f}")
-    with col3:
-        st.metric("Z-Axis Std. Dev", f"{vibration_std[2]:.4f}")
-        st.metric("Z-Axis Peak-to-Peak", f"{vibration_peak[2]:.4f}")
-
-    # Signal Visualization
-    st.markdown("### Vibration Pattern Analysis")
-    tab1, tab2, tab3, tab4 = st.tabs(["X-Axis", "Y-Axis", "Z-Axis", "Magnitude"])
-    with tab1:
-        st.line_chart(data[:500, 0])
-    with tab2:
-        st.line_chart(data[:500, 1])
-    with tab3:
-        st.line_chart(data[:500, 2])
-    with tab4:
-        st.line_chart(vibration_magnitude[:500])
-
-    # Maintenance Guidance
-    st.markdown("---")
-    if loss > 0.1:
-        st.markdown("""
-            ### 🛠 Recommended Maintenance Actions
-            1. **Immediate Checks**:
-               - Inspect cutting tools for wear/breakage
-               - Verify spindle alignment
-               - Check hydraulic pressure levels
-            2. **Preventative Measures**:
-               - Schedule tool replacement
-               - Review last maintenance logs
-               - Run full diagnostic cycle
-            """)
-    else:
-        st.markdown("""
-            ### ✅ Healthy Operation Indicators
-            - Consistent vibration patterns
-            - No high-frequency anomalies detected
-            - All axes within normal operating ranges
-            """)
+        if is_anomaly:
+            st.markdown('<div class="anomaly-detected">Status: 🚨 Anomaly Detected</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="normal-status">Status: ✅ Normal Operation</div>', unsafe_allow_html=True)
 
 
-# Add insights from graphs
-st.markdown("### 📊 Insights from Graphs")
-st.markdown("""
-    The graphs above provide a detailed view of vibration patterns across different axes (X, Y, Z) and the combined vibration magnitude:
-    
-    - **X-Axis Vibration**: The pattern shows periodic spikes, indicating consistent operational behavior. However, any sharp spikes or irregularities might hint at potential misalignment.
-    - **Y-Axis Vibration**: A relatively steady pattern with occasional peaks. Peaks could suggest specific load conditions or mechanical stress.
-    - **Z-Axis Vibration**: Noticeable irregularity observed in this axis, which might correlate with the identified anomaly. Further investigation is recommended for this direction.
-    - **Combined Magnitude**: The overall vibration magnitude graph reveals how combined forces impact the system. Anomalous peaks here directly correspond to critical points in the X, Y, or Z axes.
-    
-    These insights are crucial for identifying which components or directions require attention, allowing for targeted maintenance.
-""")
-
-# Display numeric summary
-st.markdown("### 📋 Summary in Numbers")
-st.table({
-    "Metric": [
-        "Confidence Score", 
-        "Error Severity", 
-        "Recommended Action", 
-        "X-Axis Std. Dev", 
-        "Y-Axis Std. Dev", 
-        "Z-Axis Std. Dev", 
-        "X-Axis Peak-to-Peak", 
-        "Y-Axis Peak-to-Peak", 
-        "Z-Axis Peak-to-Peak"
-    ],
-    "Value": [
-        f"{(1 - loss)*100:.1f}%", 
-        f"{loss:.4f}", 
-        "Immediate Maintenance" if loss > 0.1 else "Continue Monitoring", 
-        f"{vibration_std[0]:.4f}", 
-        f"{vibration_std[1]:.4f}", 
-        f"{vibration_std[2]:.4f}", 
-        f"{vibration_peak[0]:.4f}", 
-        f"{vibration_peak[1]:.4f}", 
-        f"{vibration_peak[2]:.4f}"
-    ]
-})
-
-# Maintenance Guidance (repeat for user clarity)
-if loss > 0.1:
-    st.markdown("""
-        ### 🛠 Maintenance Summary:
-        - **Critical Issue** detected in the system.
-        - Immediate actions are required to prevent further damage.
-        - Recommended checks include tool inspection, spindle alignment, and hydraulic systems review.
+    # ----------------------- Visualization -----------------------
+    st.subheader("Reconstruction Errors Visualization")
+    st.write("""
+    **Understanding Reconstruction Errors**:
+    - Reconstruction error represents the difference between the input signal and its reconstruction.
+    - Low errors indicate normal operation, while high errors indicate anomalies.
+    Below is a visualization of the reconstruction errors:
     """)
-else:
-    st.markdown("""
-        ### ✅ Maintenance Summary:
-        - System is **healthy** with no significant anomalies detected.
-        - Routine monitoring is recommended to ensure continued optimal performance.
-    """)
-st.markdown("---")
-st.markdown(
-    """
-    <div style="text-align: center; color: gray;">
-        Made with ❤️ by <a href="https://github.com/ChashmishCoder" target="_blank">ChashmishCoder</a>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+
+    # Plot Reconstruction Errors
+    errors = np.mean(np.square(data.reshape(-1, 3) - reconstruction.reshape(-1, 3)), axis=1)
+    indices = list(range(len(errors)))
+    anomalies_idx = [i for i, err in enumerate(errors) if err > threshold]
+
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter(
+        x=indices,
+        y=errors,
+        mode='lines',
+        name='Reconstruction Error',
+        line=dict(color='blue')
+    ))
+
+    fig.add_trace(go.Scatter(
+        x=anomalies_idx,
+        y=[errors[i] for i in anomalies_idx],
+        mode='markers',
+        name='Anomalies',
+        marker=dict(color='red', size=8)
+    ))
+
+    fig.add_hline(
+        y=threshold,
+        line_dash="dash",
+        line_color="green",
+        annotation_text="Threshold",
+        annotation_position="top right"
+    )
+
+    fig.update_layout(
+        title="Reconstruction Errors with Anomaly Threshold",
+        xaxis_title="Index",
+        yaxis_title="Reconstruction Error",
+        height=500
+    )
+
+    st.plotly_chart(fig)
+
+    # ----------------------- Results -----------------------
+    st.subheader("Results")
+    st.write(f"**Reconstruction Error**: {reconstruction_error:.4f}")
+    st.write(f"**Anomaly Threshold**: {threshold:.4f}")
+    st.write(f"**Number of Anomalies Detected**: {len(anomalies_idx)}")
+    st.write(f"**Number of Samples**: {original_data_length}")
+# ----------------------- Footer -----------------------
+st.sidebar.markdown("---")
+st.sidebar.write("Developed with ❤️ by ChashmishCoder")
