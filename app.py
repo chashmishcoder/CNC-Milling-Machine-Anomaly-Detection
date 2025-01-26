@@ -234,4 +234,8 @@ if uploaded_file:
     st.write(f"**Number of Samples**: {original_data_length}")
 # ----------------------- Footer -----------------------
 st.sidebar.markdown("---")
-st.sidebar.write("Developed with ❤️ by ChashmishCoder")
+st.sidebar.write("""
+    <div style="text-align: center; color: gray;">
+        Developed by <a href="https://github.com/ChashmishCoder" target="_blank">ChashmishCoder</a>
+    </div>
+    """, unsafe_allow_html=True)
