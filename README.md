@@ -22,7 +22,7 @@ This project implements an advanced anomaly detection system for CNC milling mac
 
 ## 🚀 Live Deployment
 
-👉 **Access the Application**: [CNC Anomaly Detector Live Demo](YOUR_DEPLOYMENT_LINK_HERE)
+👉 **Access the Application**: [CNC Anomaly Detector Live Demo](https://cncanomalyproject.streamlit.app/)
 
 ## 💻 Prerequisites
 
